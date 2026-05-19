@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Model Mastery</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ── TOP NAV ─────────────────────────────────────────── -->
+  <header class="top-nav">
+    <div class="top-nav-brand" onclick="showView('dashboard')">
+      <span class="brand-icon">⬡</span>
+      <span class="brand-name">MODEL MASTERY</span>
+    </div>
+    <div class="top-nav-actions">
+      <button class="top-nav-btn" onclick="exportProgress()" title="Export progress">↑ Export</button>
+      <button class="top-nav-btn" onclick="importProgress()" title="Import progress">↓ Import</button>
+      <button class="top-nav-btn top-nav-btn-danger" onclick="resetProgress()" title="Reset all progress">Reset</button>
+      <button class="top-nav-btn" onclick="exportCSV()" title="Export models as CSV">CSV</button>
+    </div>
+  </header>
+
+  <!-- ── MAIN CONTENT ───────────────────────────────────── -->
+  <main class="app-main">
+
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view"></div>
+
+    <!-- LIBRARY (rendered by app.js) -->
+    <div id="view-library" class="view"></div>
+
+    <!-- REVIEW -->
+    <div id="view-review" class="view"></div>
+
+    <!-- NUMBER DRILL -->
+    <div id="view-numberdrill" class="view"></div>
+
+    <!-- SCENARIO TRAINER -->
+    <div id="view-scenarios" class="view"></div>
+
+    <!-- RELATIONSHIP CHAINS -->
+    <div id="view-chains" class="view"></div>
+
+  </main>
+
+  <!-- ── BOTTOM NAV ─────────────────────────────────────── -->
+  <nav class="bottom-nav">
+    <button class="nav-btn" data-view="dashboard" onclick="showView('dashboard')">
+      <span class="nav-icon">⌂</span>
+      <span class="nav-label">Home</span>
+    </button>
+    <button class="nav-btn" data-view="library" onclick="showView('library')">
+      <span class="nav-icon">⊞</span>
+      <span class="nav-label">Library</span>
+    </button>
+    <button class="nav-btn" data-view="review" onclick="showView('review')">
+      <span class="nav-icon">◎</span>
+      <span class="nav-label">Review</span>
+    </button>
+    <button class="nav-btn" data-view="scenarios" onclick="showView('scenarios')">
+      <span class="nav-icon">⚡</span>
+      <span class="nav-label">Scenarios</span>
+    </button>
+    <button class="nav-btn" data-view="chains" onclick="showView('chains')">
+      <span class="nav-icon">⇢</span>
+      <span class="nav-label">Chains</span>
+    </button>
+    <button class="nav-btn" data-view="numberdrill" onclick="showView('numberdrill')">
+      <span class="nav-icon">#</span>
+      <span class="nav-label">Numbers</span>
+    </button>
+  </nav>
+
+  <!-- ── KEYBOARD SHORTCUT OVERLAY (hidden) ─────────────── -->
+  <div id="shortcut-overlay" class="shortcut-overlay" style="display:none">
+    <div class="shortcut-box">
+      <h3>Keyboard Shortcuts</h3>
+      <ul>
+        <li><kbd>Space</kbd> — Reveal answer</li>
+        <li><kbd>1</kbd> — Missed</li>
+        <li><kbd>2</kbd> — Hard</li>
+        <li><kbd>3</kbd> — Got it</li>
+        <li><kbd>4</kbd> — Easy</li>
+        <li><kbd>/</kbd> — Focus search</li>
+        <li><kbd>?</kbd> — Toggle this overlay</li>
+      </ul>
+      <button onclick="document.getElementById('shortcut-overlay').style.display='none'">Close</button>
+    </div>
+  </div>
+
+  <!-- ── SCRIPTS ────────────────────────────────────────── -->
+  <script type="module" src="app.js"></script>
+
+  <!-- Keyboard shortcut handler (non-module so it runs after app.js sets window globals) -->
+  <script>
+    document.addEventListener('keydown', function(e) {
+      // Ignore when typing in inputs
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          if (typeof window.revealAnswer === 'function') window.revealAnswer();
+          if (typeof window.revealDrill === 'function' && document.querySelector('.drill-active')) window.revealDrill();
+          break;
+        case '1':
+          if (typeof window.gradeAnswer === 'function') window.gradeAnswer('missed');
+          if (typeof window.gradeDrill === 'function') window.gradeDrill('missed');
+          break;
+        case '2':
+          if (typeof window.gradeAnswer === 'function') window.gradeAnswer('hard');
+          if (typeof window.gradeDrill === 'function') window.gradeDrill('hard');
+          break;
+        case '3':
+          if (typeof window.gradeAnswer === 'function') window.gradeAnswer('got_it');
+          if (typeof window.gradeDrill === 'function') window.gradeDrill('got_it');
+          break;
+        case '4':
+          if (typeof window.gradeAnswer === 'function') window.gradeAnswer('easy');
+          if (typeof window.gradeDrill === 'function') window.gradeDrill('easy');
+          break;
+        case '/':
+          e.preventDefault();
+          const search = document.getElementById('lib-search');
+          if (search) {
+            if (typeof window.showView === 'function') window.showView('library');
+            setTimeout(() => search.focus(), 100);
+          }
+          break;
+        case '?':
+          const overlay = document.getElementById('shortcut-overlay');
+          if (overlay) overlay.style.display = overlay.style.display === 'none' ? 'flex' : 'none';
+          break;
+      }
+    });
+  </script>
+</body>
+</html>
