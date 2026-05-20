@@ -1265,21 +1265,18 @@ function hideLoginOverlay() {
   if (el) el.style.display = 'none';
 }
 
-async function sendMagicLink() {
-  const emailEl = document.getElementById('login-email');
+async function signInWithGitHub() {
   const btn = document.getElementById('login-btn');
-  const email = emailEl ? emailEl.value.trim() : '';
-  if (!email) return;
   btn.disabled = true;
-  btn.textContent = 'Sending…';
-  const { error } = await supabase.auth.signInWithOtp({ email });
+  btn.textContent = 'Redirecting…';
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'github',
+    options: { redirectTo: 'https://royharmon4.github.io/models' }
+  });
   if (error) {
-    btn.textContent = 'Send Magic Link';
+    btn.textContent = 'Sign in with GitHub';
     btn.disabled = false;
     alert('Error: ' + error.message);
-  } else {
-    const form = document.getElementById('login-form');
-    if (form) form.innerHTML = '<p class="login-sent">Check your email for a magic link!</p>';
   }
 }
 
@@ -1358,7 +1355,7 @@ window.exportProgress = exportProgress;
 window.importProgress = importProgress;
 window.resetProgress = resetProgress;
 window.exportCSV = exportCSV;
-window.sendMagicLink = sendMagicLink;
+window.signInWithGitHub = signInWithGitHub;
 window.handleLogout = handleLogout;
 
 window.addEventListener('DOMContentLoaded', init);
