@@ -2,6 +2,60 @@
 
 import { MODELS, CATEGORIES, SR_INTERVALS, SR_MULTIPLIERS, initializeMastery } from './models.js';
 import { SCENARIOS, RELATIONSHIP_CHAINS } from './scenarios.js';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+// ============================================================
+// SUPABASE
+// ============================================================
+
+const SUPABASE_URL = 'https://avxhghfkszokzpuoovnm.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_XKf32HD_igMgwhgBOPAscQ__FOV2lRb';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentUser = null;
+let syncTimer = null;
+
+function setSyncStatus(status) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  el.textContent = status;
+  el.title = status;
+}
+
+async function loadFromSupabase() {
+  if (!currentUser) return;
+  setSyncStatus('↻');
+  const { data, error } = await supabase
+    .from('progress')
+    .select('mastery, stats, settings')
+    .eq('user_id', currentUser.id)
+    .maybeSingle();
+  if (error) { setSyncStatus('✗'); return; }
+  if (data) {
+    state.mastery = data.mastery || state.mastery;
+    state.stats = { ...state.stats, ...(data.stats || {}) };
+    state.settings = { ...state.settings, ...(data.settings || {}) };
+    try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch (_) {}
+  }
+  setSyncStatus('✓');
+}
+
+async function syncToSupabase() {
+  if (!currentUser) return;
+  setSyncStatus('↻');
+  const { error } = await supabase.from('progress').upsert({
+    user_id: currentUser.id,
+    mastery: state.mastery,
+    stats: state.stats,
+    settings: state.settings,
+    updated_at: new Date().toISOString()
+  });
+  setSyncStatus(error ? '✗' : '✓');
+}
+
+function scheduleSyncToSupabase() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncToSupabase, 2000);
+}
 
 // ============================================================
 // STATE MANAGEMENT
@@ -50,6 +104,7 @@ function saveState() {
   } catch (e) {
     console.warn('Could not save state:', e);
   }
+  scheduleSyncToSupabase();
 }
 
 function updateStreak() {
@@ -1124,7 +1179,7 @@ function importProgress() {
   input.click();
 }
 
-function resetProgress() {
+async function resetProgress() {
   if (!confirm('Reset ALL progress? This cannot be undone.')) return;
   state = {
     mastery: {},
@@ -1133,6 +1188,7 @@ function resetProgress() {
   };
   MODELS.forEach(m => { state.mastery[m.number] = initializeMastery(); });
   saveState();
+  if (currentUser) await syncToSupabase();
   renderView(currentView);
   alert('Progress reset.');
 }
@@ -1196,12 +1252,80 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ============================================================
+// AUTH
+// ============================================================
+
+function showLoginOverlay() {
+  const el = document.getElementById('login-overlay');
+  if (el) el.style.display = 'flex';
+}
+
+function hideLoginOverlay() {
+  const el = document.getElementById('login-overlay');
+  if (el) el.style.display = 'none';
+}
+
+async function sendMagicLink() {
+  const emailEl = document.getElementById('login-email');
+  const btn = document.getElementById('login-btn');
+  const email = emailEl ? emailEl.value.trim() : '';
+  if (!email) return;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  const { error } = await supabase.auth.signInWithOtp({ email });
+  if (error) {
+    btn.textContent = 'Send Magic Link';
+    btn.disabled = false;
+    alert('Error: ' + error.message);
+  } else {
+    const form = document.getElementById('login-form');
+    if (form) form.innerHTML = '<p class="login-sent">Check your email for a magic link!</p>';
+  }
+}
+
+async function handleLogout() {
+  await supabase.auth.signOut();
+  currentUser = null;
+  const logoutBtn = document.getElementById('logout-btn');
+  const syncEl = document.getElementById('sync-status');
+  if (logoutBtn) logoutBtn.style.display = 'none';
+  if (syncEl) syncEl.style.display = 'none';
+  showLoginOverlay();
+}
+
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && !currentUser) {
+    currentUser = session.user;
+    hideLoginOverlay();
+    const logoutBtn = document.getElementById('logout-btn');
+    const syncEl = document.getElementById('sync-status');
+    if (logoutBtn) logoutBtn.style.display = '';
+    if (syncEl) syncEl.style.display = '';
+    await loadFromSupabase();
+    renderView(currentView);
+  }
+});
+
+// ============================================================
 // INIT
 // ============================================================
 
-function init() {
+async function init() {
   loadState();
   showView('dashboard');
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    const logoutBtn = document.getElementById('logout-btn');
+    const syncEl = document.getElementById('sync-status');
+    if (logoutBtn) logoutBtn.style.display = '';
+    if (syncEl) syncEl.style.display = '';
+    await loadFromSupabase();
+    renderView(currentView);
+  } else {
+    showLoginOverlay();
+  }
 }
 
 // Expose globals for inline handlers
@@ -1234,5 +1358,7 @@ window.exportProgress = exportProgress;
 window.importProgress = importProgress;
 window.resetProgress = resetProgress;
 window.exportCSV = exportCSV;
+window.sendMagicLink = sendMagicLink;
+window.handleLogout = handleLogout;
 
 window.addEventListener('DOMContentLoaded', init);
